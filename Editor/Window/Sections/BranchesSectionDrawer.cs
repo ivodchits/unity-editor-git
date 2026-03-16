@@ -14,6 +14,7 @@ namespace GitEditor
         Vector2 _scrollPos;
         string _currentBranch = "";
         string _newBranchName = "";
+        string _filter = "";
 
         public System.Action OnChanged;
 
@@ -27,7 +28,11 @@ namespace GitEditor
 
         public void Draw(float scrollHeight = 200)
         {
-            EditorGUILayout.LabelField("Branches", GitStyles.Header);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Branches", GitStyles.Header, GUILayout.Width(70));
+            GUILayout.FlexibleSpace();
+            _filter = EditorGUILayout.TextField(_filter, EditorStyles.toolbarSearchField, GUILayout.Width(120));
+            EditorGUILayout.EndHorizontal();
 
             // New branch
             EditorGUILayout.BeginHorizontal();
@@ -50,19 +55,27 @@ namespace GitEditor
 
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos, GUILayout.Height(scrollHeight));
 
+            bool hasFilter = !string.IsNullOrEmpty(_filter);
+
             // Local branches
-            _localFoldout = EditorGUILayout.Foldout(_localFoldout, $"Local ({_local.Count})", true);
+            var visibleLocal = hasFilter
+                ? _local.Where(b => b.DisplayName.IndexOf(_filter, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList()
+                : _local;
+            _localFoldout = EditorGUILayout.Foldout(_localFoldout, $"Local ({visibleLocal.Count})", true);
             if (_localFoldout)
             {
-                foreach (var branch in _local)
+                foreach (var branch in visibleLocal)
                     DrawBranchRow(branch);
             }
 
             // Remote branches
-            _remoteFoldout = EditorGUILayout.Foldout(_remoteFoldout, $"Remote ({_remote.Count})", true);
+            var visibleRemote = hasFilter
+                ? _remote.Where(b => b.DisplayName.IndexOf(_filter, System.StringComparison.OrdinalIgnoreCase) >= 0).ToList()
+                : _remote;
+            _remoteFoldout = EditorGUILayout.Foldout(_remoteFoldout, $"Remote ({visibleRemote.Count})", true);
             if (_remoteFoldout)
             {
-                foreach (var branch in _remote)
+                foreach (var branch in visibleRemote)
                     DrawBranchRow(branch);
             }
 
