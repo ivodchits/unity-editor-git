@@ -1,0 +1,11 @@
+{
+    "name": "com.giteditor.unity",
+    "version": "1.0.0",
+    "displayName": "Git Editor",
+    "description": "A comprehensive Git client for the Unity Editor.",
+    "unity": "6000.0",
+    "keywords": ["git", "editor", "version-control"],
+    "author": {
+        "name": "Company Picnic"
+    }
+}
