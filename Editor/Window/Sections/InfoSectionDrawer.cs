@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEditorInternal;
 
 namespace GitEditor
 {
@@ -131,7 +132,17 @@ namespace GitEditor
 
         void DrawDiffView(List<GitFileDiff> diffs)
         {
+            EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Diff", GitStyles.Header);
+            GUILayout.FlexibleSpace();
+
+            string diffFilePath = GetCurrentDiffFilePath(diffs);
+            GUI.enabled = !string.IsNullOrEmpty(diffFilePath);
+            if (GUILayout.Button("Diff", EditorStyles.miniButton, GUILayout.Width(55)))
+                HandleDiffButton(diffFilePath, diffs);
+            GUI.enabled = true;
+            EditorGUILayout.EndHorizontal();
+
             _diffScrollPos = EditorGUILayout.BeginScrollView(_diffScrollPos);
 
             foreach (var fileDiff in diffs)
@@ -153,6 +164,64 @@ namespace GitEditor
             }
 
             EditorGUILayout.EndScrollView();
+        }
+
+        static readonly HashSet<string> UnitySerializedExtensions = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            ".prefab", ".unity", ".asset", ".mat", ".controller",
+            ".overrideController", ".lighting", ".physicMaterial",
+            ".physicsMaterial", ".flare", ".fontsettings", ".guiskin",
+            ".mask", ".mixer", ".renderTexture", ".shadervariants",
+            ".spriteatlas", ".terrainlayer", ".brush"
+        };
+
+        static bool IsUnitySerializedFile(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return false;
+            string ext = Path.GetExtension(path);
+            return UnitySerializedExtensions.Contains(ext);
+        }
+
+        string GetCurrentDiffFilePath(List<GitFileDiff> diffs)
+        {
+            if (_workingChange != null)
+                return _workingChange.Path;
+
+            if (_selectedFileIndex >= 0 && _selectedFileIndex < _changedFiles.Count)
+            {
+                string entry = _changedFiles[_selectedFileIndex];
+                return entry.Length > 2 ? entry.Substring(2).Trim() : entry;
+            }
+
+            // Single file in the diff list
+            if (diffs.Count == 1 && !string.IsNullOrEmpty(diffs[0].FilePath))
+                return diffs[0].FilePath;
+
+            return null;
+        }
+
+        void HandleDiffButton(string filePath, List<GitFileDiff> diffs)
+        {
+            if (string.IsNullOrEmpty(filePath)) return;
+
+            if (IsUnitySerializedFile(filePath))
+            {
+                AssetDiffPopup.Show(
+                    filePath,
+                    _workingChange?.Staged ?? false,
+                    _commit?.Hash);
+            }
+            else
+            {
+                OpenInIDE(filePath);
+            }
+        }
+
+        static void OpenInIDE(string filePath)
+        {
+            string fullPath = Path.Combine(GitCommandRunner.RepoRoot, filePath);
+            if (File.Exists(fullPath))
+                InternalEditorUtility.OpenFileAtLineExternal(fullPath, 1);
         }
 
         void ShowFileMenu(string filePath)
