@@ -22,11 +22,19 @@ namespace GitEditor
             return ParseDiffOutput(result.Output);
         }
 
-        public static List<GitFileDiff> GetFileDiff(string path, bool staged)
+        public static List<GitFileDiff> GetFileDiff(string path, bool staged, int contextLines = 3)
         {
+            string contextArg = "-U" + contextLines;
             var result = staged
-                ? GitCommandRunner.Run("diff", "--cached", "--", "\"" + path + "\"")
-                : GitCommandRunner.Run("diff", "--", "\"" + path + "\"");
+                ? GitCommandRunner.Run("diff", "--cached", contextArg, "--", "\"" + path + "\"")
+                : GitCommandRunner.Run("diff", contextArg, "--", "\"" + path + "\"");
+            return ParseDiffOutput(result.Output);
+        }
+
+        public static List<GitFileDiff> GetCommitFileDiff(string hash, string path, int contextLines = 3)
+        {
+            string contextArg = "-U" + contextLines;
+            var result = GitCommandRunner.Run("diff", contextArg, hash + "^.." + hash, "--", "\"" + path + "\"");
             return ParseDiffOutput(result.Output);
         }
 
