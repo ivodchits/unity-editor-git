@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using UnityEditor;
 
 namespace GitEditor
 {
@@ -11,7 +12,7 @@ namespace GitEditor
         static readonly Regex NameRegex = new Regex(@"^\s*m_Name:\s*(.*)", RegexOptions.Compiled);
         static readonly Regex GameObjectRefRegex = new Regex(@"^\s*m_GameObject:\s*\{fileID:\s*(\d+)", RegexOptions.Compiled);
         static readonly Regex FatherRefRegex = new Regex(@"^\s*m_Father:\s*\{fileID:\s*(\d+)", RegexOptions.Compiled);
-        static readonly Regex ScriptGuidRegex = new Regex(@"guid:\s*([0-9a-f]{32})", RegexOptions.Compiled);
+        static readonly Regex ScriptRefRegex = new Regex(@"^\s*m_Script:\s*\{fileID:\s*\d+,\s*guid:\s*([0-9a-f]{32})", RegexOptions.Compiled);
         static readonly Regex ComponentRefRegex = new Regex(@"^\s*-\s*component:\s*\{fileID:\s*(\d+)", RegexOptions.Compiled);
         static readonly Regex KeyValueRegex = new Regex(@"^(\s*)([\w.]+):\s*(.*)", RegexOptions.Compiled);
         static readonly Regex ChildrenRefRegex = new Regex(@"^\s*-\s*\{fileID:\s*(\d+)\}", RegexOptions.Compiled);
@@ -149,8 +150,8 @@ namespace GitEditor
                     ctx.ParentMap[currentFileID] = fatherID;
                 }
 
-                var scriptMatch = ScriptGuidRegex.Match(line);
-                if (scriptMatch.Success && currentClassID == 114)
+                var scriptMatch = ScriptRefRegex.Match(line);
+                if (scriptMatch.Success)
                 {
                     ctx.ScriptGuidMap[currentFileID] = scriptMatch.Groups[1].Value;
                 }
@@ -234,8 +235,8 @@ namespace GitEditor
                     ctx.ParentMap[currentFileID] = fatherID;
                 }
 
-                var scriptMatch = ScriptGuidRegex.Match(line);
-                if (scriptMatch.Success && currentClassID == 114)
+                var scriptMatch = ScriptRefRegex.Match(line);
+                if (scriptMatch.Success)
                 {
                     ctx.ScriptGuidMap[currentFileID] = scriptMatch.Groups[1].Value;
                 }
@@ -316,12 +317,12 @@ namespace GitEditor
                             entries.Add(new AssetDiffEntry
                             {
                                 ChangeType = AssetDiffChangeType.GameObjectAdded,
-                                ObjectName = ResolveName(fileID, ctx)
+                                ObjectName = BuildObjectPath(fileID, ctx)
                             });
                         }
                         else // Component added
                         {
-                            string goName = ResolveGameObjectName(fileID, ctx);
+                            string goName = BuildObjectPath(fileID, ctx);
                             entries.Add(new AssetDiffEntry
                             {
                                 ChangeType = AssetDiffChangeType.ComponentAdded,
@@ -345,12 +346,12 @@ namespace GitEditor
                             entries.Add(new AssetDiffEntry
                             {
                                 ChangeType = AssetDiffChangeType.GameObjectRemoved,
-                                ObjectName = ResolveName(fileID, ctx)
+                                ObjectName = BuildObjectPath(fileID, ctx)
                             });
                         }
                         else // Component removed
                         {
-                            string goName = ResolveGameObjectName(fileID, ctx);
+                            string goName = BuildObjectPath(fileID, ctx);
                             entries.Add(new AssetDiffEntry
                             {
                                 ChangeType = AssetDiffChangeType.ComponentRemoved,
@@ -378,9 +379,7 @@ namespace GitEditor
                 if (compRefMatch.Success)
                 {
                     long compFileID = long.Parse(compRefMatch.Groups[1].Value);
-                    string goName = ResolveGameObjectName(currentFileID, ctx);
-                    if (string.IsNullOrEmpty(goName))
-                        goName = ResolveName(currentFileID, ctx);
+                    string goName = BuildObjectPath(currentFileID, ctx);
 
                     int compClassID = 0;
                     ctx.ClassMap.TryGetValue(compFileID, out compClassID);
@@ -578,23 +577,20 @@ namespace GitEditor
         {
             if (string.IsNullOrEmpty(guid)) return null;
 
-            // Search for .meta files containing this GUID
-            string assetsPath = Path.Combine(GitCommandRunner.RepoRoot, "Assets");
-            if (!Directory.Exists(assetsPath)) return null;
-
             try
             {
-                // Search for script .meta files containing the GUID
-                var metaFiles = Directory.GetFiles(assetsPath, "*.cs.meta", SearchOption.AllDirectories);
-                foreach (string metaFile in metaFiles)
+                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                if (!string.IsNullOrEmpty(assetPath))
                 {
-                    string content = File.ReadAllText(metaFile);
-                    if (content.Contains(guid))
-                    {
-                        // The script name is the .meta filename minus ".meta"
-                        string scriptFile = Path.GetFileNameWithoutExtension(metaFile); // removes .meta
-                        return Path.GetFileNameWithoutExtension(scriptFile); // removes .cs
-                    }
+                    var monoScript = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPath);
+                    string className = monoScript?.GetClass()?.Name;
+                    if (!string.IsNullOrEmpty(className))
+                        return className;
+
+                    // Fall back to file name if the class couldn't be reflected
+                    string fileName = Path.GetFileNameWithoutExtension(assetPath);
+                    if (!string.IsNullOrEmpty(fileName))
+                        return fileName;
                 }
             }
             catch
@@ -681,6 +677,20 @@ namespace GitEditor
             var result = new List<AssetDiffEntry>();
             var seen = new HashSet<string>();
 
+            // Build suppression sets so PropertyChanged noise for fully added/removed
+            // components and GameObjects is filtered out.
+            var addedOrRemovedComponents = new HashSet<string>(); // "objectName:componentName"
+            var addedOrRemovedObjects    = new HashSet<string>(); // "objectName"
+            foreach (var entry in entries)
+            {
+                if (entry.ChangeType == AssetDiffChangeType.ComponentAdded ||
+                    entry.ChangeType == AssetDiffChangeType.ComponentRemoved)
+                    addedOrRemovedComponents.Add($"{entry.ObjectName}:{entry.ComponentName}");
+                else if (entry.ChangeType == AssetDiffChangeType.GameObjectAdded ||
+                         entry.ChangeType == AssetDiffChangeType.GameObjectRemoved)
+                    addedOrRemovedObjects.Add(entry.ObjectName);
+            }
+
             foreach (var entry in entries)
             {
                 // Skip duplicate component add/remove entries (can happen from both header and m_Component list)
@@ -690,6 +700,15 @@ namespace GitEditor
                     string key = $"{entry.ChangeType}:{entry.ObjectName}:{entry.ComponentName}";
                     if (seen.Contains(key)) continue;
                     seen.Add(key);
+                }
+
+                // Suppress property changes that belong to a fully added/removed component or object
+                if (entry.ChangeType == AssetDiffChangeType.PropertyChanged)
+                {
+                    if (addedOrRemovedComponents.Contains($"{entry.ObjectName}:{entry.ComponentName}"))
+                        continue;
+                    if (addedOrRemovedObjects.Contains(entry.ObjectName))
+                        continue;
                 }
 
                 // Skip internal Unity property changes that aren't meaningful to users

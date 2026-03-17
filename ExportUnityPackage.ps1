@@ -86,6 +86,7 @@ $fileMap = @(
     @{ Src = "Editor\Models\GitBranch.cs";      Dst = "Assets/GitEditor/Editor/Models/GitBranch.cs" }
     @{ Src = "Editor\Models\GitStash.cs";       Dst = "Assets/GitEditor/Editor/Models/GitStash.cs" }
     @{ Src = "Editor\Models\GitDiffHunk.cs";    Dst = "Assets/GitEditor/Editor/Models/GitDiffHunk.cs" }
+    @{ Src = "Editor\Models\AssetDiffEntry.cs"; Dst = "Assets/GitEditor/Editor/Models/AssetDiffEntry.cs" }
 
     # Services
     @{ Src = "Editor\Services\GitStatusService.cs";  Dst = "Assets/GitEditor/Editor/Services/GitStatusService.cs" }
@@ -93,7 +94,8 @@ $fileMap = @(
     @{ Src = "Editor\Services\GitBranchService.cs";  Dst = "Assets/GitEditor/Editor/Services/GitBranchService.cs" }
     @{ Src = "Editor\Services\GitDiffService.cs";    Dst = "Assets/GitEditor/Editor/Services/GitDiffService.cs" }
     @{ Src = "Editor\Services\GitStashService.cs";   Dst = "Assets/GitEditor/Editor/Services/GitStashService.cs" }
-    @{ Src = "Editor\Services\GitRemoteService.cs";  Dst = "Assets/GitEditor/Editor/Services/GitRemoteService.cs" }
+    @{ Src = "Editor\Services\GitRemoteService.cs";     Dst = "Assets/GitEditor/Editor/Services/GitRemoteService.cs" }
+    @{ Src = "Editor\Services\UnityYamlDiffParser.cs"; Dst = "Assets/GitEditor/Editor/Services/UnityYamlDiffParser.cs" }
 
     # Window
     @{ Src = "Editor\Window\GitEditorWindow.cs";                        Dst = "Assets/GitEditor/Editor/Window/GitEditorWindow.cs" }
@@ -106,6 +108,7 @@ $fileMap = @(
     @{ Src = "Editor\Window\Sections\ConsoleSectionDrawer.cs";          Dst = "Assets/GitEditor/Editor/Window/Sections/ConsoleSectionDrawer.cs" }
     @{ Src = "Editor\Window\Popups\FileHistoryPopup.cs";                Dst = "Assets/GitEditor/Editor/Window/Popups/FileHistoryPopup.cs" }
     @{ Src = "Editor\Window\Popups\CreateBranchPopup.cs";              Dst = "Assets/GitEditor/Editor/Window/Popups/CreateBranchPopup.cs" }
+    @{ Src = "Editor\Window\Popups\AssetDiffPopup.cs";                 Dst = "Assets/GitEditor/Editor/Window/Popups/AssetDiffPopup.cs" }
     @{ Src = "Editor\Window\Shared\GitStyles.cs";                       Dst = "Assets/GitEditor/Editor/Window/Shared/GitStyles.cs" }
     @{ Src = "Editor\Window\Shared\GitIcons.cs";                        Dst = "Assets/GitEditor/Editor/Window/Shared/GitIcons.cs" }
 )

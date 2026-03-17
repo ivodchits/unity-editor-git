@@ -97,13 +97,18 @@ namespace GitEditor
             {
                 if (_selectedRow == null)
                 {
-                    _selectedRow = SafeStyle(() => new GUIStyle(EditorStyles.label), () => new GUIStyle());
+                    _selectedRow = SafeStyle(
+                        () => new GUIStyle(EditorStyles.label) { richText = true },
+                        () => new GUIStyle { richText = true });
                     var tex = new Texture2D(1, 1);
                     tex.SetPixel(0, 0, EditorGUIUtility.isProSkin
                         ? new Color(0.17f, 0.36f, 0.53f)
                         : new Color(0.24f, 0.48f, 0.90f, 0.4f));
                     tex.Apply();
-                    _selectedRow.normal.background = tex;
+                    _selectedRow.normal.background  = tex;
+                    _selectedRow.hover.background   = tex;
+                    _selectedRow.active.background  = tex;
+                    _selectedRow.focused.background = tex;
                 }
                 return _selectedRow;
             }

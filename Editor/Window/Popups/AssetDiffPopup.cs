@@ -43,9 +43,9 @@ namespace GitEditor
         {
             // Toolbar
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-            EditorGUILayout.LabelField(_filePath, EditorStyles.boldLabel);
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Refresh", EditorStyles.toolbarButton))
+            EditorGUILayout.SelectableLabel(_filePath, EditorStyles.boldLabel,
+                GUILayout.Height(EditorGUIUtility.singleLineHeight));
+            if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(60)))
                 Refresh();
             EditorGUILayout.EndHorizontal();
 

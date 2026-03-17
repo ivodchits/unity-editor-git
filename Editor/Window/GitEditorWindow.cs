@@ -280,7 +280,7 @@ namespace GitEditor
         // ── Horizontal drag splitter (left/right panes) ───────────────────────────
         void DrawHorizSplitter()
         {
-            var rect = GUILayoutUtility.GetRect(4, 4, GUILayout.ExpandHeight(true));
+            var rect = GUILayoutUtility.GetRect(0, 0, GUILayout.Width(4), GUILayout.ExpandHeight(true));
             EditorGUIUtility.AddCursorRect(rect, MouseCursor.ResizeHorizontal);
             EditorGUI.DrawRect(rect, new Color(0.5f, 0.5f, 0.5f, 0.3f));
 

@@ -90,7 +90,6 @@ namespace GitEditor
         void DrawFileRow(GitFileChange file)
         {
             bool isSelected = _selectedChange == file;
-            var style = isSelected ? GitStyles.SelectedRow : EditorStyles.label;
 
             var rowRect = EditorGUILayout.BeginHorizontal();
 
@@ -112,23 +111,37 @@ namespace GitEditor
             GUILayout.Label(file.StatusChar, GUILayout.Width(16));
             GUI.color = prevColor;
 
-            // File name (clickable)
+            // File name (clickable) — MinWidth(0) allows it to shrink when the panel is
+            // narrow so the action buttons on the right always stay visible.
             string fileName = Path.GetFileName(file.Path);
             string dirPath = Path.GetDirectoryName(file.Path)?.Replace('\\', '/');
-            string display = string.IsNullOrEmpty(dirPath) ? fileName : $"{fileName}  <color=#888>{dirPath}/</color>";
+            string display = string.IsNullOrEmpty(dirPath) ? fileName : $"{fileName}  <color=#888888>{dirPath}/</color>";
 
-            if (GUILayout.Button(display, isSelected ? GitStyles.SelectedRow : GitStyles.MonoLabel))
+            if (GUILayout.Button(display, isSelected ? GitStyles.SelectedRow : GitStyles.MonoLabel, GUILayout.MinWidth(0)))
             {
                 _selectedChange = file;
                 OnChanged?.Invoke(); // triggers diff display in info pane
             }
 
-            GUILayout.FlexibleSpace();
+            // Reserve a fixed-width block for action buttons so they are always anchored
+            // to the right edge of the panel regardless of file-name length.
+            bool hasRevert = !file.Staged;
+            float stageW = file.Staged ? 57f : 47f;
+            float totalBtnW = stageW + (hasRevert ? 52f : 0f); // 52 = 50px button + 2px gap
 
-            // Action buttons
+            var btnAreaRect = GUILayoutUtility.GetRect(totalBtnW, EditorGUIUtility.singleLineHeight,
+                GUILayout.Width(totalBtnW));
+
+            EditorGUILayout.EndHorizontal();
+
+            // Draw buttons using absolute rects inside the reserved area.
+            float bx = btnAreaRect.x;
+            float by = btnAreaRect.y;
+            float bh = btnAreaRect.height;
+
             if (file.Staged)
             {
-                if (GUILayout.Button("Unstage", EditorStyles.miniButton, GUILayout.Width(55)))
+                if (GUI.Button(new Rect(bx, by, stageW - 2, bh), "Unstage", EditorStyles.miniButton))
                 {
                     GitStatusService.Unstage(file.Path);
                     Refresh();
@@ -137,7 +150,7 @@ namespace GitEditor
             }
             else
             {
-                if (GUILayout.Button("Stage", EditorStyles.miniButton, GUILayout.Width(45)))
+                if (GUI.Button(new Rect(bx, by, stageW - 2, bh), "Stage", EditorStyles.miniButton))
                 {
                     GitStatusService.Stage(file.Path);
                     Refresh();
@@ -145,38 +158,37 @@ namespace GitEditor
                 }
             }
 
-            if (!file.Staged && file.Status != FileStatus.Untracked)
+            if (hasRevert)
             {
+                bx += stageW;
                 GUI.color = new Color(1f, 0.6f, 0.6f);
-                if (GUILayout.Button("Revert", EditorStyles.miniButton, GUILayout.Width(50)))
+                string revertLabel = file.Status == FileStatus.Untracked ? "Delete" : "Revert";
+                if (GUI.Button(new Rect(bx, by, 50f, bh), revertLabel, EditorStyles.miniButton))
                 {
-                    if (EditorUtility.DisplayDialog("Revert File",
-                        $"Revert changes to {file.Path}? This cannot be undone.", "Revert", "Cancel"))
+                    GUI.color = prevColor;
+                    if (file.Status == FileStatus.Untracked)
                     {
-                        GitStatusService.Revert(file.Path);
-                        Refresh();
-                        OnChanged?.Invoke();
+                        if (EditorUtility.DisplayDialog("Delete File",
+                            $"Delete untracked file {file.Path}? This cannot be undone.", "Delete", "Cancel"))
+                        {
+                            GitStatusService.DiscardUntracked(file.Path);
+                            Refresh();
+                            OnChanged?.Invoke();
+                        }
+                    }
+                    else
+                    {
+                        if (EditorUtility.DisplayDialog("Revert File",
+                            $"Revert changes to {file.Path}? This cannot be undone.", "Revert", "Cancel"))
+                        {
+                            GitStatusService.Revert(file.Path);
+                            Refresh();
+                            OnChanged?.Invoke();
+                        }
                     }
                 }
                 GUI.color = prevColor;
             }
-            else if (!file.Staged && file.Status == FileStatus.Untracked)
-            {
-                GUI.color = new Color(1f, 0.6f, 0.6f);
-                if (GUILayout.Button("Delete", EditorStyles.miniButton, GUILayout.Width(50)))
-                {
-                    if (EditorUtility.DisplayDialog("Delete File",
-                        $"Delete untracked file {file.Path}? This cannot be undone.", "Delete", "Cancel"))
-                    {
-                        GitStatusService.DiscardUntracked(file.Path);
-                        Refresh();
-                        OnChanged?.Invoke();
-                    }
-                }
-                GUI.color = prevColor;
-            }
-
-            EditorGUILayout.EndHorizontal();
         }
 
         void ShowContextMenu(GitFileChange file)
